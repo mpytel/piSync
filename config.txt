@@ -1,0 +1,2 @@
+sourceDir:/Users/pidev/pis
+backupDir:/Users/pidev/proj/python/piSync/pis
