@@ -1,2 +1,2 @@
-sourceDir:/Users/pidev/pis
-backupDir:/Users/pidev/proj/python/piSync/pis
+sourceDir:/Volumes/piDrive/music/Music/Old Crow Medicine Show/Tennessee Pusher
+backupDir:/Volumes/piSpace/Music/Old Crow Medicine Show/Tennessee Pusher

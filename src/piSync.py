@@ -23,19 +23,15 @@ def log(message):
 def fixBadChars(inStr):
 
     outStr = inStr
-    if ' ' in outStr:
-      outStr = outStr.replace(' ', '\ ')
-    if '\'' in outStr:
-      outStr = outStr.replace("'", "\\'")
-    if '(' in outStr:
-      outStr = outStr.replace("(", "\(")
-      #print('piChk1: '+outStr)
-    if ')' in outStr:
-      outStr = outStr.replace(")", "\)")
-      #print('piChk2: '+outStr)
-    if '&' in outStr:
-      outStr = outStr.replace("&", "\&")
-      #print('piChk3: '+outStr)
+    badChars = ['\\',"\'",' ','(',')','&',';','`','$']
+    badCharsFixed = []
+    for char in badChars:
+        if char in outStr:
+            outStr = outStr.replace(char, '\\' +char)
+            badCharsFixed.append(char)
+
+    if len(badCharsFixed) > 0:
+        log(f'fixBadChars: {badCharsFixed} in {inStr}')
 
     return outStr
 
@@ -49,6 +45,7 @@ def compare2file(file1, file2):
             f1Hash = hashlib.md5(f1.read()).hexdigest()
             f2Hash = hashlib.md5(f2.read()).hexdigest()
             if f1Hash == f2Hash:
+                log(f'fileSynced: {file1}')
                 return True
             else:
                 log(file1+': '+str(f1Hash))
@@ -61,18 +58,21 @@ def compareHashSourceDir(sourceDir, backupDir):
     # return False if any file is different
      # get all file in sourceDir
     files = os.listdir(sourceDir)
+    if '.DS_Store' in files:
+        os.remove(os.path.join(sourceDir, '.DS_Store' ))
     # get all file in backupDir
     files_backupDir = os.listdir(backupDir)
+    if '.DS_Store' in files_backupDir:
+        os.remove(os.path.join(backupDir, '.DS_Store' ))
     # compare 2 list
     if len(files) != len(files_backupDir):
         return False
 
     for file in files:
+        #print(os.path.join(backupDir, file)+' : '+str(os.path.isdir(os.path.join(backupDir, file))))
         if file in files_backupDir and not os.path.isdir(os.path.join(backupDir, file)):
             if not compare2file(os.path.join(sourceDir, file), os.path.join(backupDir, file)):
                 return False
-        else:
-            return False
     return True
 
 def chkSourceDir(sourceDir, backupDir):
@@ -81,10 +81,10 @@ def chkSourceDir(sourceDir, backupDir):
     updateFile = 0
     deleteFile = 0
 
-  # check if sourceDir is same with backupDir
+  # check if sourceDir is in sync with backupDir
     if compareHashSourceDir(sourceDir, backupDir):
-        now = time.strftime("%Y-%m-%d %H:%M:%S.%f", time.localtime())
-        print(f'[{now}] source is up to date')
+        now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        print(f'[{now}] source: {sourceDir} is up to date')
         log('backup is up to date')
         return countSync, updateFile, deleteFile
     else:
@@ -118,7 +118,6 @@ def chkSourceDir(sourceDir, backupDir):
             # compare 2 list
             for file in files_backupDir:
                 if not file == '.DS_Store':
-                    #print(os.path.join(backupDir, file)+' : '+str(os.path.isdir(os.path.join(backupDir, file))))
                     if file in files and not os.path.isdir(os.path.join(backupDir, file)):
                         if compare2file(sourceDir+'/'+file, backupDir+'/'+file):
                             log(f'{file} is up to date')
@@ -145,6 +144,7 @@ def chkSourceDir(sourceDir, backupDir):
             for file in files:
                 if not file == '.DS_Store':
                     if file not in files_backupDir and not os.path.isdir(os.path.join(backupDir, file)):
+                        #print(os.path.join(backupDir, file)+' : '+str(os.path.isdir(os.path.join(backupDir, file))))
                         # copy file from sourceDir to backupDir
                         updateFile += 1
                         theCommand = 'cp ' + fixBadChars(sourceDir)+'/'+fixBadChars(file)+' '+fixBadChars(backupDir)
@@ -193,12 +193,14 @@ class piSync():
         # get variable from config
         with open('config.txt', 'r') as f:
             lines = f.readlines()
-            sourceDir = lines[0].split(':')[1].strip()
-            backupDir = lines[1].split(':')[1].strip()
+            sourceDir = os.path.expanduser(lines[0].split(':')[1].strip())
+            sourceDir = os.path.abspath(sourceDir)
+            backupDir = os.path.expanduser(lines[1].split(':')[1].strip())
+            backupDir = os.path.abspath(backupDir)
         # check if sourceDir is exist
         if not os.path.isdir(sourceDir):
             log('source directory: NOT FOUND')
-            print('source directory is not exist')
+            print(f'source directory: {sourceDir} does not exist')
             raise(FileExistsError)
         else:
             sourceDir = os.path.abspath(sourceDir)
@@ -271,21 +273,21 @@ class piSync():
     while keepLooping:
         for subdir, dirs, files in os.walk(self.sourceDir):
             if subdir == self.sourceDir:
-                countSync, updateFile, deleteFile = chkSourceDir(subdir, self.backupDir)
                 chkBackupSubDirs(self.backupDir, dirs)
+                countSync, updateFile, deleteFile = chkSourceDir(subdir, self.backupDir)
             else:
                 chkBackup = subdir.replace(self.sourceDir,self.backupDir)
-                countSync, updateFile, deleteFile = chkSourceDir(subdir, chkBackup)
                 chkBackupSubDirs(chkBackup, dirs)
+                countSync, updateFile, deleteFile = chkSourceDir(subdir, chkBackup)
 
-            now = time.strftime("%Y-%m-%d %H:%M:%S.%f", time.localtime())
+            now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
             print(f'[{now}] sync: {countSync}; update: {updateFile}; delete: {deleteFile}')
 
             countSyncTotal += countSync
             updateFileTotal += updateFile
             deleteFileTotal += deleteFile
 
-        now = time.strftime("%Y-%m-%d %H:%M:%S.%f", time.localtime())
+        now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         print(f'[{now}] totals - sync: {countSyncTotal}; update: {updateFileTotal}; delete: {deleteFileTotal}')
 
         keepLooping = False

@@ -129,5 +129,6 @@ dmypy.json
 .pyre/
 
 # project data
-log.txt
+log*.txt
 pipList*.txt
+config*.txt
